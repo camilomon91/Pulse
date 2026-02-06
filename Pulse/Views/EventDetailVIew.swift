@@ -17,11 +17,12 @@ final class EventDetailViewModel: ObservableObject {
     // RSVP (for free events)
     @Published var myRSVP: EventRSVP?
 
-    private let service = EventsService()
+    private let service: EventsServing
     private let event: Event
 
-    init(event: Event) {
+    init(event: Event, service: EventsServing = EventsService()) {
         self.event = event
+        self.service = service
     }
 
     func load() async {
@@ -107,7 +108,7 @@ struct EventDetailView: View {
 
     init(event: Event) {
         self.event = event
-        _vm = StateObject(wrappedValue: EventDetailViewModel(event: event))
+        _vm = StateObject(wrappedValue: EventDetailViewModel(event: event, service: EventsService()))
     }
 
     var body: some View {
@@ -243,7 +244,7 @@ struct EventDetailView: View {
                                 }
 
                                 HStack(spacing: 10) {
-                                    Text(formatCents(t.priceCents, currency: t.currency))
+                                    Text(CurrencyFormatter.string(cents: t.priceCents, currency: t.currency))
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
 
@@ -288,31 +289,12 @@ struct EventDetailView: View {
 
     // MARK: - Helpers
 
-    private func formatCents(_ cents: Int, currency: String) -> String {
-        let dollars = Double(cents) / 100.0
-        return String(format: "%@ %.2f", currency, dollars)
-    }
 
     @ViewBuilder
     private var coverHeader: some View {
-        if let urlString = event.coverUrl, let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .empty:
-                    RoundedRectangle(cornerRadius: 16).frame(height: 220)
-                case .success(let image):
-                    image.resizable()
-                        .scaledToFill()
-                        .frame(height: 220)
-                        .clipped()
-                        .cornerRadius(16)
-                case .failure:
-                    RoundedRectangle(cornerRadius: 16).frame(height: 220)
-                @unknown default:
-                    RoundedRectangle(cornerRadius: 16).frame(height: 220)
-                }
-            }
-            .padding(.bottom, 6)
+        if let urlString = event.coverUrl {
+            RemoteEventImageView(urlString: urlString, width: nil, height: 220, cornerRadius: 16)
+                .padding(.bottom, 6)
         }
     }
 }

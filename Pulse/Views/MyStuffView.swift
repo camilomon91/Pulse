@@ -19,7 +19,11 @@ final class MyStuffViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    private let service = EventsService()
+    private let service: EventsServing
+
+    init(service: EventsServing = EventsService()) {
+        self.service = service
+    }
 
     func load() async {
         isLoading = true
@@ -27,8 +31,8 @@ final class MyStuffViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            async let o = service.fetchMyOrdersWithEvent()
-            async let r = service.fetchMyRSVPsWithEvent()
+            async let o = service.fetchMyOrdersWithEvent(limit: 50)
+            async let r = service.fetchMyRSVPsWithEvent(limit: 50)
             orders = try await o
             rsvps = try await r
         } catch {
@@ -82,7 +86,7 @@ struct MyStuffView: View {
                                 subtitle: order.event.startAt.formatted(date: .abbreviated, time: .shortened),
                                 city: order.event.city,
                                 coverUrl: order.event.coverUrl,
-                                trailing: "\(order.status.uppercased()) • \(formatMoney(cents: order.totalCents, currency: order.currency))"
+                                trailing: "\(order.status.uppercased()) • \(CurrencyFormatter.string(cents: order.totalCents, currency: order.currency))"
                             )
                         }
                     }
@@ -109,14 +113,6 @@ struct MyStuffView: View {
             }
         }
     }
-
-    private func formatMoney(cents: Int, currency: String) -> String {
-        let amount = Double(cents) / 100.0
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency
-        return formatter.string(from: NSNumber(value: amount)) ?? "\(currency) \(amount)"
-    }
 }
 
 private struct EventRow: View {
@@ -128,7 +124,7 @@ private struct EventRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            coverThumb(urlString: coverUrl)
+            RemoteEventImageView(urlString: coverUrl, width: 56, height: 56, cornerRadius: 10)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(title).font(.headline)
@@ -147,31 +143,6 @@ private struct EventRow: View {
         }
         .padding(.vertical, 6)
     }
-
-    @ViewBuilder
-    private func coverThumb(urlString: String?) -> some View {
-        let size: CGFloat = 56
-        if let s = urlString, let url = URL(string: s) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .empty:
-                    RoundedRectangle(cornerRadius: 10).frame(width: size, height: size)
-                case .success(let image):
-                    image.resizable()
-                        .scaledToFill()
-                        .frame(width: size, height: size)
-                        .clipped()
-                        .cornerRadius(10)
-                case .failure:
-                    RoundedRectangle(cornerRadius: 10).frame(width: size, height: size)
-                @unknown default:
-                    RoundedRectangle(cornerRadius: 10).frame(width: size, height: size)
-                }
-            }
-        } else {
-            RoundedRectangle(cornerRadius: 10).frame(width: size, height: size)
-        }
-    }
 }
 
 // MARK: - Order Detail
@@ -182,7 +153,12 @@ struct OrderDetailView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
-    private let service = EventsService()
+    private let service: EventsServing
+
+    init(order: OrderWithEvent, service: EventsServing = EventsService()) {
+        self.order = order
+        self.service = service
+    }
 
     var body: some View {
         ScrollView {
@@ -213,7 +189,7 @@ struct OrderDetailView: View {
                 HStack {
                     Text("Total").font(.headline)
                     Spacer()
-                    Text(formatMoney(cents: order.totalCents, currency: order.currency))
+                    Text(CurrencyFormatter.string(cents: order.totalCents, currency: order.currency))
                         .font(.headline)
                 }
 
@@ -237,27 +213,9 @@ struct OrderDetailView: View {
         .task { await load() }
     }
 
-    @ViewBuilder
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let s = order.event.coverUrl, let url = URL(string: s) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        RoundedRectangle(cornerRadius: 16).frame(height: 200)
-                    case .success(let image):
-                        image.resizable()
-                            .scaledToFill()
-                            .frame(height: 200)
-                            .clipped()
-                            .cornerRadius(16)
-                    case .failure:
-                        RoundedRectangle(cornerRadius: 16).frame(height: 200)
-                    @unknown default:
-                        RoundedRectangle(cornerRadius: 16).frame(height: 200)
-                    }
-                }
-            }
+            RemoteEventImageView(urlString: order.event.coverUrl, width: nil, height: 200, cornerRadius: 16)
 
             Text(order.event.title)
                 .font(.title2).bold()
@@ -286,7 +244,7 @@ struct OrderDetailView: View {
             }
 
             let lineTotal = item.quantity * item.unitPriceCents
-            Text("\(formatMoney(cents: item.unitPriceCents, currency: item.currency)) each • \(formatMoney(cents: lineTotal, currency: item.currency))")
+            Text("\(CurrencyFormatter.string(cents: item.unitPriceCents, currency: item.currency)) each • \(CurrencyFormatter.string(cents: lineTotal, currency: item.currency))")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -306,14 +264,6 @@ struct OrderDetailView: View {
             errorMessage = error.localizedDescription
         }
     }
-
-    private func formatMoney(cents: Int, currency: String) -> String {
-        let amount = Double(cents) / 100.0
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency
-        return formatter.string(from: NSNumber(value: amount)) ?? "\(currency) \(amount)"
-    }
 }
 
 // MARK: - RSVP Detail (simple)
@@ -323,23 +273,7 @@ struct RSVPDetailView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let s = rsvp.event.coverUrl, let url = URL(string: s) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        RoundedRectangle(cornerRadius: 16).frame(height: 220)
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                            .frame(height: 220)
-                            .clipped()
-                            .cornerRadius(16)
-                    case .failure:
-                        RoundedRectangle(cornerRadius: 16).frame(height: 220)
-                    @unknown default:
-                        RoundedRectangle(cornerRadius: 16).frame(height: 220)
-                    }
-                }
-            }
+            RemoteEventImageView(urlString: rsvp.event.coverUrl, width: nil, height: 220, cornerRadius: 16)
 
             Text(rsvp.event.title).font(.title2).bold()
             Text(rsvp.event.startAt.formatted(date: .long, time: .shortened))
@@ -370,7 +304,12 @@ struct EventDetailLoaderView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
-    private let service = EventsService()
+    private let service: EventsServing
+
+    init(eventId: UUID, service: EventsServing = EventsService()) {
+        self.eventId = eventId
+        self.service = service
+    }
 
     var body: some View {
         Group {
