@@ -1,4 +1,5 @@
 import Foundation
+import Supabase
 
 extension EventsService {
     func getMyRSVP(eventId: UUID) async throws -> EventRSVP? {

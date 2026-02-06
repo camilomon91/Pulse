@@ -1,4 +1,5 @@
 import Foundation
+import Supabase
 
 extension EventsService {
     func fetchPublishedUpcoming(limit: Int = 50) async throws -> [Event] {

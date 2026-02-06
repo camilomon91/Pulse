@@ -1,4 +1,5 @@
 import Foundation
+import Supabase
 
 extension EventsService {
     func fetchTicketTypes(eventId: UUID) async throws -> [TicketType] {
