@@ -12,7 +12,11 @@ final class ExploreEventsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    private let service = EventsService()
+    private let service: EventsServing
+
+    init(service: EventsServing = EventsService()) {
+        self.service = service
+    }
 
     func load() async {
         isLoading = true
@@ -20,7 +24,7 @@ final class ExploreEventsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            events = try await service.fetchPublishedUpcoming()
+            events = try await service.fetchPublishedUpcoming(limit: 50)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -48,7 +52,7 @@ struct ExploreEventsView: View {
                             EventDetailView(event: event)
                         } label: {
                             HStack(spacing: 12) {
-                                coverThumb(for: event)
+                                RemoteEventImageView(urlString: event.coverUrl, width: 64, height: 64, cornerRadius: 10)
 
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(event.title).font(.headline)
@@ -69,32 +73,6 @@ struct ExploreEventsView: View {
             }
             .navigationTitle("Explore")
             .task { await vm.load() }
-        }
-    }
-
-    @ViewBuilder
-    private func coverThumb(for event: Event) -> some View {
-        let size: CGFloat = 64
-
-        if let urlString = event.coverUrl, let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .empty:
-                    RoundedRectangle(cornerRadius: 10).frame(width: size, height: size)
-                case .success(let image):
-                    image.resizable()
-                        .scaledToFill()
-                        .frame(width: size, height: size)
-                        .clipped()
-                        .cornerRadius(10)
-                case .failure:
-                    RoundedRectangle(cornerRadius: 10).frame(width: size, height: size)
-                @unknown default:
-                    RoundedRectangle(cornerRadius: 10).frame(width: size, height: size)
-                }
-            }
-        } else {
-            RoundedRectangle(cornerRadius: 10).frame(width: size, height: size)
         }
     }
 }
