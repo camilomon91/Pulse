@@ -19,15 +19,18 @@ final class CheckoutViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var orderId: UUID?
     @Published var totalCents: Int = 0
+    @Published var currencyCode: String = "CAD"
 
-    private let service = EventsService()
+    private let service: EventsServiceProtocol
     private let event: Event
     private let selections: [CheckoutSelection]
 
-    init(event: Event, selections: [CheckoutSelection]) {
+    init(event: Event, selections: [CheckoutSelection], service: EventsServiceProtocol = EventsService()) {
         self.event = event
         self.selections = selections
+        self.service = service
         self.totalCents = selections.reduce(0) { $0 + $1.quantity * $1.ticketType.priceCents }
+        self.currencyCode = selections.first?.ticketType.currency ?? "CAD"
     }
 
     func checkout() async {
@@ -56,7 +59,7 @@ struct CheckoutView: View {
     init(event: Event, selections: [CheckoutSelection]) {
         self.event = event
         self.selections = selections
-        _vm = StateObject(wrappedValue: CheckoutViewModel(event: event, selections: selections))
+        _vm = StateObject(wrappedValue: CheckoutViewModel(event: event, selections: selections, service: EventsService()))
     }
 
     var body: some View {
@@ -78,7 +81,7 @@ struct CheckoutView: View {
                 HStack {
                     Text("Total")
                     Spacer()
-                    Text(formatCents(vm.totalCents, currency: "CAD"))
+                    Text(CurrencyFormatter.string(cents: vm.totalCents, currency: vm.currencyCode))
                         .bold()
                 }
             }
@@ -106,8 +109,4 @@ struct CheckoutView: View {
         .navigationTitle("Checkout")
     }
 
-    private func formatCents(_ cents: Int, currency: String) -> String {
-        let dollars = Double(cents) / 100.0
-        return String(format: "%@ %.2f", currency, dollars)
-    }
 }

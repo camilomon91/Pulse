@@ -12,7 +12,11 @@ final class MyEventsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    private let service = EventsService()
+    private let service: EventsServiceProtocol
+
+    init(service: EventsServiceProtocol = EventsService()) {
+        self.service = service
+    }
 
     func load() async {
         isLoading = true
@@ -20,7 +24,7 @@ final class MyEventsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            events = try await service.fetchMyEvents()
+            events = try await service.fetchMyEvents(limit: 50)
         } catch {
             errorMessage = error.localizedDescription
         }

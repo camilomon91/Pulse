@@ -31,7 +31,11 @@ final class CreateEventViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var successMessage: String?
 
-    private let service = EventsService()
+    private let service: EventsServiceProtocol
+
+    init(service: EventsServiceProtocol = EventsService()) {
+        self.service = service
+    }
 
     func save(ticketTypes: [TicketTypeDraft]) async {
         errorMessage = nil
