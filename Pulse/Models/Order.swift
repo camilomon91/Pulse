@@ -26,24 +26,6 @@ struct Order: Codable, Identifiable {
     }
 }
 
-struct OrderItem: Codable, Identifiable {
-    let id: UUID
-    let orderId: UUID
-    let ticketTypeId: UUID
-    let quantity: Int
-    let unitPriceCents: Int
-    let currency: String
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case orderId = "order_id"
-        case ticketTypeId = "ticket_type_id"
-        case quantity
-        case unitPriceCents = "unit_price_cents"
-        case currency
-    }
-}
-
 /// Used by the RPC create_order_with_items
 struct CheckoutItem: Encodable {
     let ticket_type_id: UUID
