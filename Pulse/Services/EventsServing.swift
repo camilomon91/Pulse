@@ -22,6 +22,7 @@ protocol EventsServing {
     // Checkout / Orders
     func createOrder(eventId: UUID, items: [CheckoutItem]) async throws -> UUID
     func fetchMyOrdersWithEvent(limit: Int) async throws -> [OrderWithEvent]
+    func fetchOrganizerOrdersWithEvent(limit: Int) async throws -> [OrderWithEvent]
     func fetchOrderItemsWithTicketTypes(orderId: UUID) async throws -> [OrderItemWithTicket]
 
     // RSVP

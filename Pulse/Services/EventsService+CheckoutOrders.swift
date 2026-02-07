@@ -48,6 +48,19 @@ extension EventsService {
             .value
     }
 
+
+    func fetchOrganizerOrdersWithEvent(limit: Int = 100) async throws -> [OrderWithEvent] {
+        guard let user = supabase.auth.currentUser else { return [] }
+
+        return try await supabase
+            .from("orders")
+            .select("id,event_id,user_id,status,total_cents,currency,created_at,events!inner(id,title,start_at,city,cover_url)")
+            .eq("events.creator_id", value: user.id)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+    }
     func fetchOrderItemsWithTicketTypes(orderId: UUID) async throws -> [OrderItemWithTicket] {
         try await supabase
             .from("order_items")
