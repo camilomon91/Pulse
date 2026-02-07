@@ -102,17 +102,26 @@ struct MyStuffView: View {
                 if vm.tickets.isEmpty {
                     ContentUnavailableView("No tickets yet", systemImage: "ticket")
                 } else {
-                    List(vm.tickets) { ticket in
-                        NavigationLink {
-                            TicketDetailView(ticket: ticket)
-                        } label: {
-                            EventRow(
-                                title: ticket.event?.title ?? "Event Ticket",
-                                subtitle: ticket.event?.startAt.formatted(date: .abbreviated, time: .shortened) ?? ticket.createdAt.formatted(date: .abbreviated, time: .shortened),
-                                city: ticket.event?.city,
-                                coverUrl: ticket.event?.coverUrl,
-                                trailing: "\(ticket.status.uppercased()) • \(ticket.isActive ? "Active" : "Disabled")"
-                            )
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Your e-tickets")
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                LazyHStack(spacing: 14) {
+                                    ForEach(vm.tickets) { ticket in
+                                        NavigationLink {
+                                            TicketDetailView(ticket: ticket)
+                                        } label: {
+                                            TicketCarouselCard(ticket: ticket)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal)
+                                .padding(.bottom, 6)
+                            }
                         }
                     }
                 }
@@ -170,6 +179,98 @@ private struct EventRow: View {
     }
 }
 
+private struct TicketCarouselCard: View {
+    let ticket: TicketWithDetails
+
+    var body: some View {
+        ZStack {
+            ticketBackground
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(ticket.ticketType?.name ?? "General Admission")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+
+                        Text(ticket.event?.title ?? "Event Ticket")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.9))
+                            .lineLimit(2)
+                    }
+
+                    Spacer()
+
+                    Text(ticket.isActive ? "ACTIVE" : "DISABLED")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.thinMaterial)
+                        .clipShape(Capsule())
+                        .foregroundStyle(.white)
+                }
+
+                HStack(alignment: .bottom) {
+                    EticketQRCodeView(payload: ticket.payloadForQr, qrSize: 92, includeBackground: false)
+
+                    Spacer()
+
+                    Text(ticket.status.uppercased())
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .foregroundStyle(.white)
+                }
+            }
+            .padding(16)
+        }
+        .frame(width: 300, height: 190)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(.white.opacity(0.25), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.16), radius: 10, x: 0, y: 6)
+    }
+
+    @ViewBuilder
+    private var ticketBackground: some View {
+        if let coverUrl = ticket.event?.coverUrl,
+           let url = URL(string: coverUrl) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .empty:
+                    placeholderBackground
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .overlay(.black.opacity(0.28))
+                        .blur(radius: 8)
+                        .overlay(.ultraThinMaterial)
+                case .failure:
+                    placeholderBackground
+                @unknown default:
+                    placeholderBackground
+                }
+            }
+        } else {
+            placeholderBackground
+        }
+    }
+
+    private var placeholderBackground: some View {
+        LinearGradient(
+            colors: [.indigo.opacity(0.85), .purple.opacity(0.75)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay(.ultraThinMaterial)
+    }
+}
+
 struct TicketDetailView: View {
     let ticket: TicketWithDetails
 
@@ -190,7 +291,7 @@ struct TicketDetailView: View {
                         .font(.headline)
                 }
 
-                EticketQRCodeView(payload: ticketPayload)
+                EticketQRCodeView(payload: ticket.payloadForQr)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
 
@@ -217,18 +318,12 @@ struct TicketDetailView: View {
         .navigationTitle("E-Ticket")
         .navigationBarTitleDisplayMode(.inline)
     }
-
-    private var ticketPayload: String {
-        if let scanCode = ticket.scanCode, !scanCode.isEmpty {
-            return scanCode
-        }
-
-        return "PULSE|ticket=\(ticket.id.uuidString)|event=\(ticket.eventId.uuidString)|owner=\(ticket.ownerUserId.uuidString)"
-    }
 }
 
 private struct EticketQRCodeView: View {
     let payload: String
+    var qrSize: CGFloat = 220
+    var includeBackground: Bool = true
     private let context = CIContext()
     private let filter = CIFilter.qrCodeGenerator()
 
@@ -239,10 +334,10 @@ private struct EticketQRCodeView: View {
                     .interpolation(.none)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 220, height: 220)
-                    .padding()
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .frame(width: qrSize, height: qrSize)
+                    .padding(includeBackground ? 12 : 0)
+                    .background(includeBackground ? AnyShapeStyle(.thinMaterial) : AnyShapeStyle(.clear))
+                    .clipShape(RoundedRectangle(cornerRadius: includeBackground ? 14 : 8))
             } else {
                 ContentUnavailableView("Could not generate QR", systemImage: "qrcode")
             }
@@ -259,6 +354,16 @@ private struct EticketQRCodeView: View {
         }
 
         return UIImage(cgImage: cgImage)
+    }
+}
+
+private extension TicketWithDetails {
+    var payloadForQr: String {
+        if let scanCode, !scanCode.isEmpty {
+            return scanCode
+        }
+
+        return "PULSE|ticket=\(id.uuidString)|event=\(eventId.uuidString)|owner=\(ownerUserId.uuidString)"
     }
 }
 
