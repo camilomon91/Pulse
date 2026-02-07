@@ -6,7 +6,6 @@
 import SwiftUI
 import Combine
 
-
 struct OrganizerRootView: View {
     var body: some View {
         TabView {
@@ -16,15 +15,11 @@ struct OrganizerRootView: View {
             CreateEventView()
                 .tabItem { Label("Create", systemImage: "plus.circle") }
 
-            OrganizerOrdersView()
-                .tabItem { Label("Orders", systemImage: "bag") }
-
             ProfileTabView()
                 .tabItem { Label("Profile", systemImage: "person.circle") }
         }
     }
 }
-
 
 #Preview {
     OrganizerRootView()

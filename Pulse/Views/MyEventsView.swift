@@ -52,6 +52,8 @@ final class MyEventsViewModel: ObservableObject {
 struct MyEventsView: View {
     @StateObject private var vm = MyEventsViewModel()
     @State private var selectedEventForEditing: Event?
+    @State private var selectedEventForManaging: Event?
+    @State private var selectedEventAction: Event?
 
     var body: some View {
         NavigationStack {
@@ -68,49 +70,18 @@ struct MyEventsView: View {
                                           description: Text("Create your first event."))
                 } else {
                     List(vm.events) { event in
-                        HStack(alignment: .top, spacing: 12) {
-                            RemoteEventImageView(urlString: event.coverUrl, width: 92, height: 92, cornerRadius: 10)
-
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(event.title).font(.headline)
-                                    Spacer()
-                                    Text(event.isPublished ? "Published" : "Draft")
-                                        .font(.caption)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(.thinMaterial)
-                                        .clipShape(Capsule())
-                                }
-
-                                Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-
-                                HStack {
-                                    Button("Edit") {
-                                        selectedEventForEditing = event
-                                    }
-                                    .buttonStyle(.bordered)
-
-                                    if !event.isPublished {
-                                        Button("Publish") {
-                                            Task { await vm.publish(event) }
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                    }
-                                }
-                                .padding(.top, 6)
+                        eventRow(event)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedEventAction = event
                             }
-                        }
-                        .padding(.vertical, 4)
-                        .swipeActions {
-                            Button(role: .destructive) {
-                                Task { await vm.delete(event) }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    Task { await vm.delete(event) }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
                             }
-                        }
                     }
                     .refreshable { await vm.load() }
                 }
@@ -122,6 +93,100 @@ struct MyEventsView: View {
                     await vm.load()
                 }
             }
+            .sheet(item: $selectedEventForManaging) { event in
+                OrganizerManageEventView(event: event)
+            }
+            .sheet(item: $selectedEventAction) { event in
+                EventActionsSheet(
+                    event: event,
+                    onManage: { selectedEventForManaging = event },
+                    onEdit: { selectedEventForEditing = event },
+                    onPublish: { Task { await vm.publish(event) } }
+                )
+                .presentationDetents([.height(event.isPublished ? 210 : 260)])
+                .presentationDragIndicator(.visible)
+            }
         }
+    }
+
+    @ViewBuilder
+    private func eventRow(_ event: Event) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            RemoteEventImageView(urlString: event.coverUrl, width: 92, height: 92, cornerRadius: 10)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(event.title).font(.headline)
+                    Spacer()
+                    Text(event.isPublished ? "Published" : "Draft")
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.thinMaterial)
+                        .clipShape(Capsule())
+                }
+
+                Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Text("Tap for options: Manage or Edit")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 6)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+
+private struct EventActionsSheet: View {
+    let event: Event
+    let onManage: () -> Void
+    let onEdit: () -> Void
+    let onPublish: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(event.title)
+                .font(.headline)
+                .lineLimit(2)
+
+            Button {
+                dismiss()
+                onManage()
+            } label: {
+                Label("Manage event", systemImage: "slider.horizontal.3")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+
+            Button {
+                dismiss()
+                onEdit()
+            } label: {
+                Label("Edit event", systemImage: "pencil")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+
+            if !event.isPublished {
+                Button {
+                    dismiss()
+                    onPublish()
+                } label: {
+                    Label("Publish", systemImage: "paperplane")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .background(.clear)
+        .padding(25)
     }
 }

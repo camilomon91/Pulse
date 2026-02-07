@@ -70,3 +70,123 @@ extension EventsService {
             .value
     }
 }
+
+extension EventsService {
+    func fetchMyTickets(limit: Int = 100) async throws -> [TicketWithDetails] {
+        guard let user = supabase.auth.currentUser else { return [] }
+
+        return try await supabase
+            .from("tickets")
+            .select("id,event_id,order_id,order_item_id,ticket_type_id,owner_user_id,status,is_active,scan_code,scanned_at,created_at,events(id,title,start_at,city,cover_url),ticket_types(id,name,description,price_cents,currency)")
+            .eq("owner_user_id", value: user.id)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+    }
+
+    func fetchOrganizerOrdersWithDetails(eventId: UUID, limit: Int = 100) async throws -> [OrganizerOrderWithDetails] {
+        guard let user = supabase.auth.currentUser else { return [] }
+
+        return try await supabase
+            .from("orders")
+            .select("id,event_id,user_id,status,total_cents,currency,created_at,events!inner(id,title,start_at,city,cover_url)")
+            .eq("event_id", value: eventId)
+            .eq("events.creator_id", value: user.id)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+    }
+
+    func fetchOrganizerTickets(eventId: UUID, limit: Int = 300) async throws -> [TicketWithDetails] {
+        guard let user = supabase.auth.currentUser else { return [] }
+
+        return try await supabase
+            .from("tickets")
+            .select("id,event_id,order_id,order_item_id,ticket_type_id,owner_user_id,status,is_active,scan_code,scanned_at,created_at,events!inner(id,title,start_at,city,cover_url),ticket_types(id,name,description,price_cents,currency)")
+            .eq("event_id", value: eventId)
+            .eq("events.creator_id", value: user.id)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+    }
+
+
+
+
+    func fetchOrganizerTicketByScanCode(eventId: UUID, scanCode: String) async throws -> TicketWithDetails? {
+        guard let user = supabase.auth.currentUser else { return nil }
+
+        let rows: [TicketWithDetails] = try await supabase
+            .from("tickets")
+            .select("id,event_id,order_id,order_item_id,ticket_type_id,owner_user_id,status,is_active,scan_code,scanned_at,created_at,events!inner(id,title,start_at,city,cover_url),ticket_types(id,name,description,price_cents,currency)")
+            .eq("event_id", value: eventId)
+            .eq("scan_code", value: scanCode)
+            .eq("events.creator_id", value: user.id)
+            .limit(1)
+            .execute()
+            .value
+
+        return rows.first
+    }
+
+
+
+    func fetchOrganizerTicketById(eventId: UUID, ticketId: UUID) async throws -> TicketWithDetails? {
+        guard let user = supabase.auth.currentUser else { return nil }
+
+        let rows: [TicketWithDetails] = try await supabase
+            .from("tickets")
+            .select("id,event_id,order_id,order_item_id,ticket_type_id,owner_user_id,status,is_active,scan_code,scanned_at,created_at,events!inner(id,title,start_at,city,cover_url),ticket_types(id,name,description,price_cents,currency)")
+            .eq("event_id", value: eventId)
+            .eq("id", value: ticketId)
+            .eq("events.creator_id", value: user.id)
+            .limit(1)
+            .execute()
+            .value
+
+        return rows.first
+    }
+
+    func fetchProfileSnippet(userId: UUID) async throws -> TicketOwnerSnippet? {
+        let rows: [TicketOwnerSnippet] = try await supabase
+            .from("profiles")
+            .select("id,full_name")
+            .eq("id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        return rows.first
+    }
+
+
+
+    func markTicketScanned(ticketId: UUID, scannedAt: Date) async throws {
+        struct TicketScannedUpdate: Encodable {
+            let is_active: Bool
+            let status: String
+            let scanned_at: Date
+        }
+
+        try await supabase
+            .from("tickets")
+            .update(TicketScannedUpdate(is_active: false, status: "scanned", scanned_at: scannedAt))
+            .eq("id", value: ticketId)
+            .execute()
+    }
+
+    func setTicketActive(ticketId: UUID, isActive: Bool) async throws {
+        struct TicketActiveUpdate: Encodable {
+            let is_active: Bool
+        }
+
+        try await supabase
+            .from("tickets")
+            .update(TicketActiveUpdate(is_active: isActive))
+            .eq("id", value: ticketId)
+            .execute()
+    }
+}

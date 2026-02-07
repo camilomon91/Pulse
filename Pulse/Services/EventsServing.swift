@@ -24,6 +24,14 @@ protocol EventsServing {
     func fetchMyOrdersWithEvent(limit: Int) async throws -> [OrderWithEvent]
     func fetchOrganizerOrdersWithEvent(limit: Int) async throws -> [OrderWithEvent]
     func fetchOrderItemsWithTicketTypes(orderId: UUID) async throws -> [OrderItemWithTicket]
+    func fetchMyTickets(limit: Int) async throws -> [TicketWithDetails]
+    func fetchOrganizerOrdersWithDetails(eventId: UUID, limit: Int) async throws -> [OrganizerOrderWithDetails]
+    func fetchOrganizerTickets(eventId: UUID, limit: Int) async throws -> [TicketWithDetails]
+    func fetchOrganizerTicketByScanCode(eventId: UUID, scanCode: String) async throws -> TicketWithDetails?
+    func fetchOrganizerTicketById(eventId: UUID, ticketId: UUID) async throws -> TicketWithDetails?
+    func fetchProfileSnippet(userId: UUID) async throws -> TicketOwnerSnippet?
+    func setTicketActive(ticketId: UUID, isActive: Bool) async throws
+    func markTicketScanned(ticketId: UUID, scannedAt: Date) async throws
 
     // RSVP
     func getMyRSVP(eventId: UUID) async throws -> EventRSVP?
