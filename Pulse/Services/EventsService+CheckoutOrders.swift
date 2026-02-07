@@ -77,7 +77,7 @@ extension EventsService {
 
         return try await supabase
             .from("tickets")
-            .select("id,event_id,order_id,order_item_id,ticket_type_id,owner_user_id,status,is_active,scan_code,scanned_at,created_at,events(id,title,start_at,city,cover_url),ticket_types(id,name,description,price_cents,currency),profiles!tickets_owner_user_id_fkey(id,full_name)")
+            .select("id,event_id,order_id,order_item_id,ticket_type_id,owner_user_id,status,is_active,scan_code,scanned_at,created_at,events(id,title,start_at,city,cover_url),ticket_types(id,name,description,price_cents,currency)")
             .eq("owner_user_id", value: user.id)
             .order("created_at", ascending: false)
             .limit(limit)
@@ -90,7 +90,7 @@ extension EventsService {
 
         return try await supabase
             .from("orders")
-            .select("id,event_id,user_id,status,total_cents,currency,created_at,events!inner(id,title,start_at,city,cover_url),profiles!orders_user_id_fkey(id,full_name)")
+            .select("id,event_id,user_id,status,total_cents,currency,created_at,events!inner(id,title,start_at,city,cover_url)")
             .eq("event_id", value: eventId)
             .eq("events.creator_id", value: user.id)
             .order("created_at", ascending: false)
@@ -104,13 +104,26 @@ extension EventsService {
 
         return try await supabase
             .from("tickets")
-            .select("id,event_id,order_id,order_item_id,ticket_type_id,owner_user_id,status,is_active,scan_code,scanned_at,created_at,events!inner(id,title,start_at,city,cover_url),ticket_types(id,name,description,price_cents,currency),profiles!tickets_owner_user_id_fkey(id,full_name)")
+            .select("id,event_id,order_id,order_item_id,ticket_type_id,owner_user_id,status,is_active,scan_code,scanned_at,created_at,events!inner(id,title,start_at,city,cover_url),ticket_types(id,name,description,price_cents,currency)")
             .eq("event_id", value: eventId)
             .eq("events.creator_id", value: user.id)
             .order("created_at", ascending: false)
             .limit(limit)
             .execute()
             .value
+    }
+
+
+    func fetchProfileSnippet(userId: UUID) async throws -> TicketOwnerSnippet? {
+        let rows: [TicketOwnerSnippet] = try await supabase
+            .from("profiles")
+            .select("id,full_name")
+            .eq("id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+
+        return rows.first
     }
 
     func setTicketActive(ticketId: UUID, isActive: Bool) async throws {

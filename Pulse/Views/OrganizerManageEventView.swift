@@ -14,6 +14,7 @@ final class OrganizerManageEventViewModel: ObservableObject {
     @Published var tickets: [TicketWithDetails] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var profileNames: [UUID: String] = [:]
 
     private let service: EventsServing
     private let eventId: UUID
@@ -33,9 +34,29 @@ final class OrganizerManageEventViewModel: ObservableObject {
             async let organizerTickets = service.fetchOrganizerTickets(eventId: eventId, limit: 400)
             orders = try await organizerOrders
             tickets = try await organizerTickets
+            await resolveProfileNames()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func resolveProfileNames() async {
+        let ids = Set(orders.map(\.userId) + tickets.map(\.ownerUserId))
+        guard !ids.isEmpty else {
+            profileNames = [:]
+            return
+        }
+
+        var result: [UUID: String] = [:]
+        for id in ids {
+            if let profile = try? await service.fetchProfileSnippet(userId: id),
+               let fullName = profile.fullName,
+               !fullName.isEmpty {
+                result[id] = fullName
+            }
+        }
+
+        profileNames = result
     }
 
     func toggleTicket(_ ticket: TicketWithDetails) async {
@@ -96,7 +117,7 @@ struct OrganizerManageEventView: View {
                         OrganizerOrderDetailView(order: order)
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(order.buyer?.fullName ?? order.userId.uuidString)
+                            Text(vm.profileNames[order.userId] ?? order.buyer?.fullName ?? order.userId.uuidString)
                                 .font(.headline)
                             Text(order.createdAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.subheadline)
@@ -119,7 +140,7 @@ struct OrganizerManageEventView: View {
                         Text(ticket.ticketType?.name ?? "Ticket")
                             .font(.headline)
 
-                        Text("Owner: \(ticket.owner?.fullName ?? ticket.ownerUserId.uuidString)")
+                        Text("Owner: \(vm.profileNames[ticket.ownerUserId] ?? ticket.owner?.fullName ?? ticket.ownerUserId.uuidString)")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 
