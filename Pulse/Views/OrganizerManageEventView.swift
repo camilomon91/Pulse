@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 @MainActor
 final class OrganizerManageEventViewModel: ObservableObject {
@@ -15,6 +16,9 @@ final class OrganizerManageEventViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var profileNames: [UUID: String] = [:]
+    @Published var scannedTicket: TicketWithDetails?
+    @Published var scanFeedback: String?
+    @Published var isProcessingScan = false
 
     private let service: EventsServing
     private let eventId: UUID
@@ -59,6 +63,55 @@ final class OrganizerManageEventViewModel: ObservableObject {
         profileNames = result
     }
 
+    func processScannedCode(_ code: String) async {
+        guard !isProcessingScan else { return }
+        isProcessingScan = true
+        defer { isProcessingScan = false }
+
+        do {
+            let ticketByCode = try await service.fetchOrganizerTicketByScanCode(eventId: eventId, scanCode: code)
+            let ticketByPayload: TicketWithDetails?
+            if ticketByCode == nil, let payloadTicketId = parsePayloadTicketId(code) {
+                ticketByPayload = try await service.fetchOrganizerTicketById(eventId: eventId, ticketId: payloadTicketId)
+            } else {
+                ticketByPayload = nil
+            }
+
+            guard let ticket = ticketByCode ?? ticketByPayload else {
+                scanFeedback = "Ticket not found for this event."
+                return
+            }
+
+            scannedTicket = ticket
+            scanFeedback = nil
+
+            // First scan consumes the ticket.
+            if ticket.isActive {
+                try await service.markTicketScanned(ticketId: ticket.id, scannedAt: Date())
+                await load()
+                if let refreshed = try await service.fetchOrganizerTicketById(eventId: eventId, ticketId: ticket.id) {
+                    scannedTicket = refreshed
+                }
+                scanFeedback = "Ticket scanned and disabled."
+            }
+        } catch {
+            scanFeedback = error.localizedDescription
+        }
+    }
+
+
+    private func parsePayloadTicketId(_ code: String) -> UUID? {
+        guard code.hasPrefix("PULSE|") else { return nil }
+        let parts = code.split(separator: "|")
+        for part in parts {
+            if part.hasPrefix("ticket=") {
+                let value = part.replacingOccurrences(of: "ticket=", with: "")
+                return UUID(uuidString: value)
+            }
+        }
+        return nil
+    }
+
     func toggleTicket(_ ticket: TicketWithDetails) async {
         do {
             try await service.setTicketActive(ticketId: ticket.id, isActive: !ticket.isActive)
@@ -72,6 +125,7 @@ final class OrganizerManageEventViewModel: ObservableObject {
 struct OrganizerManageEventView: View {
     let event: Event
     @StateObject private var vm: OrganizerManageEventViewModel
+    @State private var isScannerPresented = false
 
     init(event: Event) {
         self.event = event
@@ -102,6 +156,18 @@ struct OrganizerManageEventView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task { await vm.load() }
             .refreshable { await vm.load() }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isScannerPresented = true
+                    } label: {
+                        Label("Scan", systemImage: "qrcode.viewfinder")
+                    }
+                }
+            }
+            .sheet(isPresented: $isScannerPresented) {
+                OrganizerTicketScannerSheet(vm: vm)
+            }
         }
     }
 
@@ -234,5 +300,144 @@ private struct DetailRow: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.trailing)
         }
+    }
+}
+
+
+struct OrganizerTicketScannerSheet: View {
+    @ObservedObject var vm: OrganizerManageEventViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                QRCodeScannerView { code in
+                    Task { await vm.processScannedCode(code) }
+                }
+                .frame(height: 320)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal)
+
+                if vm.isProcessingScan {
+                    ProgressView("Processing scan...")
+                }
+
+                if let feedback = vm.scanFeedback {
+                    Text(feedback)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+
+                if let ticket = vm.scannedTicket {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(ticket.ticketType?.name ?? "Ticket")
+                            .font(.headline)
+                        Text("Status: \(ticket.status.uppercased())")
+                            .foregroundStyle(.secondary)
+                        Text("State: \(ticket.isActive ? "Enabled" : "Disabled")")
+                            .foregroundStyle(.secondary)
+
+                        Button(ticket.isActive ? "Disable ticket" : "Enable ticket") {
+                            Task {
+                                await vm.toggleTicket(ticket)
+                                if let code = ticket.scanCode {
+                                    await vm.processScannedCode(code)
+                                }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(ticket.isActive ? .red : .green)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(.thinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(.horizontal)
+                }
+
+                Spacer()
+            }
+            .navigationTitle("Scan Ticket")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct QRCodeScannerView: UIViewControllerRepresentable {
+    var onCodeScanned: (String) -> Void
+
+    func makeUIViewController(context: Context) -> QRScannerViewController {
+        let vc = QRScannerViewController()
+        vc.onCodeScanned = onCodeScanned
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: QRScannerViewController, context: Context) {}
+}
+
+final class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+    var onCodeScanned: ((String) -> Void)?
+
+    private let captureSession = AVCaptureSession()
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var lastCode: String?
+    private var lastScanTime: Date = .distantPast
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupCapture()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.layer.bounds
+    }
+
+    private func setupCapture() {
+        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video),
+              let videoInput = try? AVCaptureDeviceInput(device: videoCaptureDevice),
+              captureSession.canAddInput(videoInput) else {
+            return
+        }
+        captureSession.addInput(videoInput)
+
+        let metadataOutput = AVCaptureMetadataOutput()
+        guard captureSession.canAddOutput(metadataOutput) else { return }
+        captureSession.addOutput(metadataOutput)
+
+        metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+        metadataOutput.metadataObjectTypes = [.qr]
+
+        let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+        previewLayer.videoGravity = .resizeAspectFill
+        previewLayer.frame = view.layer.bounds
+        view.layer.addSublayer(previewLayer)
+        self.previewLayer = previewLayer
+
+        captureSession.startRunning()
+    }
+
+    func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
+        guard let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
+              object.type == .qr,
+              let code = object.stringValue else {
+            return
+        }
+
+        let now = Date()
+        if code == lastCode && now.timeIntervalSince(lastScanTime) < 1.5 {
+            return
+        }
+
+        lastCode = code
+        lastScanTime = now
+        onCodeScanned?(code)
     }
 }
