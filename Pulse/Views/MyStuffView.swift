@@ -102,25 +102,32 @@ struct MyStuffView: View {
                 if vm.tickets.isEmpty {
                     ContentUnavailableView("No tickets yet", systemImage: "ticket")
                 } else {
-                    ScrollView(.vertical, showsIndicators: false) {
+                    GeometryReader { proxy in
+                        let cardHeight = max(260, proxy.size.height - 38)
+                        let cardWidth = max(320, proxy.size.width - 30)
+
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Your e-tickets")
                                 .font(.headline)
                                 .padding(.horizontal)
 
                             ScrollView(.horizontal, showsIndicators: false) {
-                                LazyHStack(spacing: 14) {
+                                LazyHStack(spacing: 16) {
                                     ForEach(vm.tickets) { ticket in
                                         NavigationLink {
                                             TicketDetailView(ticket: ticket)
                                         } label: {
-                                            TicketCarouselCard(ticket: ticket)
+                                            TicketCarouselCard(
+                                                ticket: ticket,
+                                                cardWidth: cardWidth,
+                                                cardHeight: cardHeight
+                                            )
                                         }
                                         .buttonStyle(.plain)
                                     }
                                 }
                                 .padding(.horizontal)
-                                .padding(.vertical, 14)
+                                .padding(.vertical, 16)
                             }
                         }
                     }
@@ -181,6 +188,8 @@ private struct EventRow: View {
 
 private struct TicketCarouselCard: View {
     let ticket: TicketWithDetails
+    let cardWidth: CGFloat
+    let cardHeight: CGFloat
 
     var body: some View {
         ZStack {
@@ -211,7 +220,7 @@ private struct TicketCarouselCard: View {
                 }
 
                 HStack(alignment: .bottom) {
-                    EticketQRCodeView(payload: ticket.payloadForQr, qrSize: 112, includeBackground: false)
+                    EticketQRCodeView(payload: ticket.payloadForQr, qrSize: min(150, cardHeight * 0.46), includeBackground: false)
 
                     Spacer()
 
@@ -226,7 +235,7 @@ private struct TicketCarouselCard: View {
             }
             .padding(20)
         }
-        .frame(width: 320, height: 230)
+        .frame(width: cardWidth, height: cardHeight)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
