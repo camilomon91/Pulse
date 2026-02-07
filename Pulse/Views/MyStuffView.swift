@@ -102,17 +102,33 @@ struct MyStuffView: View {
                 if vm.tickets.isEmpty {
                     ContentUnavailableView("No tickets yet", systemImage: "ticket")
                 } else {
-                    List(vm.tickets) { ticket in
-                        NavigationLink {
-                            TicketDetailView(ticket: ticket)
-                        } label: {
-                            EventRow(
-                                title: ticket.event?.title ?? "Event Ticket",
-                                subtitle: ticket.event?.startAt.formatted(date: .abbreviated, time: .shortened) ?? ticket.createdAt.formatted(date: .abbreviated, time: .shortened),
-                                city: ticket.event?.city,
-                                coverUrl: ticket.event?.coverUrl,
-                                trailing: "\(ticket.status.uppercased()) • \(ticket.isActive ? "Active" : "Disabled")"
-                            )
+                    GeometryReader { proxy in
+                        let cardHeight = max(260, proxy.size.height - 88)
+                        let cardWidth = max(320, proxy.size.width - 30)
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Your e-tickets")
+                                .font(.headline)
+                                .padding(.horizontal)
+
+                            TabView {
+                                ForEach(vm.tickets) { ticket in
+                                    NavigationLink {
+                                        TicketDetailView(ticket: ticket)
+                                    } label: {
+                                        TicketCarouselCard(
+                                            ticket: ticket,
+                                            cardWidth: cardWidth,
+                                            cardHeight: cardHeight
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.bottom, 15)
+                                    .padding(.vertical, 16)
+                                }
+                            }
+                            .tabViewStyle(.page(indexDisplayMode: .automatic))
+                            .frame(height: cardHeight + 68)
                         }
                     }
                 }
@@ -170,6 +186,111 @@ private struct EventRow: View {
     }
 }
 
+private struct TicketCarouselCard: View {
+    let ticket: TicketWithDetails
+    let cardWidth: CGFloat
+    let cardHeight: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(ticket.ticketType?.name ?? "General Admission")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Text(ticket.event?.title ?? "Event Ticket")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.92))
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 6)
+
+                Text(ticket.isActive ? "ACTIVE" : "DISABLED")
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().fill(.thinMaterial)
+                    )
+                    .overlay(
+                        Capsule().fill(ticket.isActive ? .indigo.opacity(0.20) : .purple.opacity(0.20))
+                    )
+                    .foregroundStyle(.white)
+
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(alignment: .bottom, spacing: 5) {
+                EticketQRCodeView(payload: ticket.payloadForQr, qrSize: min(170, cardHeight * 0.48), includeBackground: true)
+
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: 8) {
+                    Text("Status")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.85))
+
+                    Text(ticket.status.uppercased())
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .foregroundStyle(.white)
+                }
+            }
+            .padding(.bottom, 20)
+        }
+        .padding(22)
+        .frame(width: cardWidth, height: cardHeight)
+        .background {
+            TicketCardBackground(urlString: ticket.event?.coverUrl)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(.white.opacity(0.26), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.17), radius: 12, x: 0, y: 8)
+    }
+}
+
+private struct TicketCardBackground: View {
+    let urlString: String?
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.indigo.opacity(0.52), .purple.opacity(0.44), .blue.opacity(0.40)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            if let urlString, let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .saturation(1.15)
+                            .blur(radius: 12)
+                            .opacity(0.62)
+                    default:
+                        EmptyView()
+                    }
+                }
+            }
+
+            Rectangle().fill(.black.opacity(0.24))
+            Rectangle().fill(.ultraThinMaterial).opacity(0.68)
+        }
+    }
+}
+
 struct TicketDetailView: View {
     let ticket: TicketWithDetails
 
@@ -190,7 +311,7 @@ struct TicketDetailView: View {
                         .font(.headline)
                 }
 
-                EticketQRCodeView(payload: ticketPayload)
+                EticketQRCodeView(payload: ticket.payloadForQr)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
 
@@ -217,18 +338,12 @@ struct TicketDetailView: View {
         .navigationTitle("E-Ticket")
         .navigationBarTitleDisplayMode(.inline)
     }
-
-    private var ticketPayload: String {
-        if let scanCode = ticket.scanCode, !scanCode.isEmpty {
-            return scanCode
-        }
-
-        return "PULSE|ticket=\(ticket.id.uuidString)|event=\(ticket.eventId.uuidString)|owner=\(ticket.ownerUserId.uuidString)"
-    }
 }
 
 private struct EticketQRCodeView: View {
     let payload: String
+    var qrSize: CGFloat = 220
+    var includeBackground: Bool = true
     private let context = CIContext()
     private let filter = CIFilter.qrCodeGenerator()
 
@@ -239,10 +354,13 @@ private struct EticketQRCodeView: View {
                     .interpolation(.none)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 220, height: 220)
-                    .padding()
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .frame(width: qrSize, height: qrSize)
+                    .padding(8)
+                    .background(Color.white) // optional, but usually needed for clean corners
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .padding(includeBackground ? 10 : 0)
+                    .background(includeBackground ? AnyShapeStyle(.thinMaterial) : AnyShapeStyle(.clear))
+                    .clipShape(RoundedRectangle(cornerRadius: includeBackground ? 14 : 8))
             } else {
                 ContentUnavailableView("Could not generate QR", systemImage: "qrcode")
             }
@@ -259,6 +377,16 @@ private struct EticketQRCodeView: View {
         }
 
         return UIImage(cgImage: cgImage)
+    }
+}
+
+private extension TicketWithDetails {
+    var payloadForQr: String {
+        if let scanCode, !scanCode.isEmpty {
+            return scanCode
+        }
+
+        return "PULSE|ticket=\(id.uuidString)|event=\(eventId.uuidString)|owner=\(ownerUserId.uuidString)"
     }
 }
 
