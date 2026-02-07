@@ -1,4 +1,6 @@
 import SwiftUI
+import Combine
+import Supabase
 
 @MainActor
 final class EditEventViewModel: ObservableObject {
