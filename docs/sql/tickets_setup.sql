@@ -65,7 +65,7 @@ begin
       v_owner_id,
       'reserved',
       true,
-      encode(gen_random_bytes(16), 'hex')
+      md5(gen_random_uuid()::text || clock_timestamp()::text || random()::text || i::text)
     );
   end loop;
 
