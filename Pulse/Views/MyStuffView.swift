@@ -103,7 +103,7 @@ struct MyStuffView: View {
                     ContentUnavailableView("No tickets yet", systemImage: "ticket")
                 } else {
                     GeometryReader { proxy in
-                        let cardHeight = max(260, proxy.size.height - 38)
+                        let cardHeight = max(260, proxy.size.height - 88)
                         let cardWidth = max(320, proxy.size.width - 30)
 
                         VStack(alignment: .leading, spacing: 12) {
@@ -123,12 +123,12 @@ struct MyStuffView: View {
                                         )
                                     }
                                     .buttonStyle(.plain)
-                                    .padding(.horizontal, 15)
+                                    .padding(.bottom, 15)
                                     .padding(.vertical, 16)
                                 }
                             }
                             .tabViewStyle(.page(indexDisplayMode: .automatic))
-                            .frame(height: cardHeight + 32)
+                            .frame(height: cardHeight + 68)
                         }
                     }
                 }
@@ -205,20 +205,25 @@ private struct TicketCarouselCard: View {
                         .lineLimit(2)
                 }
 
-                Spacer(minLength: 10)
+                Spacer(minLength: 6)
 
                 Text(ticket.isActive ? "ACTIVE" : "DISABLED")
                     .font(.caption2.weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(.thinMaterial)
-                    .clipShape(Capsule())
+                    .background(
+                        Capsule().fill(.thinMaterial)
+                    )
+                    .overlay(
+                        Capsule().fill(ticket.isActive ? .indigo.opacity(0.20) : .purple.opacity(0.20))
+                    )
                     .foregroundStyle(.white)
+
             }
 
             Spacer(minLength: 0)
 
-            HStack(alignment: .bottom, spacing: 14) {
+            HStack(alignment: .bottom, spacing: 5) {
                 EticketQRCodeView(payload: ticket.payloadForQr, qrSize: min(170, cardHeight * 0.48), includeBackground: true)
 
                 Spacer(minLength: 0)
@@ -237,6 +242,7 @@ private struct TicketCarouselCard: View {
                         .foregroundStyle(.white)
                 }
             }
+            .padding(.bottom, 20)
         }
         .padding(22)
         .frame(width: cardWidth, height: cardHeight)
@@ -258,7 +264,7 @@ private struct TicketCardBackground: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [.indigo.opacity(0.92), .purple.opacity(0.84), .blue.opacity(0.80)],
+                colors: [.indigo.opacity(0.52), .purple.opacity(0.44), .blue.opacity(0.40)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -271,7 +277,7 @@ private struct TicketCardBackground: View {
                             .resizable()
                             .scaledToFill()
                             .saturation(1.15)
-                            .blur(radius: 14)
+                            .blur(radius: 12)
                             .opacity(0.62)
                     default:
                         EmptyView()
@@ -349,7 +355,10 @@ private struct EticketQRCodeView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: qrSize, height: qrSize)
-                    .padding(includeBackground ? 12 : 0)
+                    .padding(8)
+                    .background(Color.white) // optional, but usually needed for clean corners
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .padding(includeBackground ? 10 : 0)
                     .background(includeBackground ? AnyShapeStyle(.thinMaterial) : AnyShapeStyle(.clear))
                     .clipShape(RoundedRectangle(cornerRadius: includeBackground ? 14 : 8))
             } else {
