@@ -51,6 +51,22 @@ extension EventsService {
         _ = try await createEventReturning(insert)
     }
 
+    func updateEvent(eventId: UUID, update: EventUpdate) async throws {
+        try await supabase
+            .from("events")
+            .update(update)
+            .eq("id", value: eventId)
+            .execute()
+    }
+
+    func deleteEvent(eventId: UUID) async throws {
+        try await supabase
+            .from("events")
+            .delete()
+            .eq("id", value: eventId)
+            .execute()
+    }
+
     func publishEvent(eventId: UUID) async throws {
         try await supabase
             .from("events")

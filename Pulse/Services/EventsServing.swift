@@ -7,6 +7,8 @@ protocol EventsServing {
     func fetchEvent(eventId: UUID) async throws -> Event
     func createEventReturning(_ insert: EventInsert) async throws -> Event
     func createEvent(_ insert: EventInsert) async throws
+    func updateEvent(eventId: UUID, update: EventUpdate) async throws
+    func deleteEvent(eventId: UUID) async throws
     func publishEvent(eventId: UUID) async throws
 
     // Media
