@@ -62,3 +62,13 @@ struct EventInsert: Encodable {
     let rsvp_capacity: Int?
     let is_published: Bool
 }
+
+struct EventUpdate: Encodable {
+    let title: String
+    let description: String
+    let start_at: Date
+    let end_at: Date?
+    let location_name: String?
+    let city: String?
+    let is_published: Bool
+}
