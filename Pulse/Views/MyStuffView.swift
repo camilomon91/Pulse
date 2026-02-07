@@ -192,91 +192,96 @@ private struct TicketCarouselCard: View {
     let cardHeight: CGFloat
 
     var body: some View {
-        ZStack {
-            ticketBackground
-
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(ticket.ticketType?.name ?? "General Admission")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-
-                        Text(ticket.event?.title ?? "Event Ticket")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.9))
-                            .lineLimit(2)
-                    }
-
-                    Spacer()
-
-                    Text(ticket.isActive ? "ACTIVE" : "DISABLED")
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.thinMaterial)
-                        .clipShape(Capsule())
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(ticket.ticketType?.name ?? "General Admission")
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
+
+                    Text(ticket.event?.title ?? "Event Ticket")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.92))
+                        .lineLimit(2)
                 }
 
-                HStack(alignment: .bottom) {
-                    EticketQRCodeView(payload: ticket.payloadForQr, qrSize: min(150, cardHeight * 0.46), includeBackground: false)
+                Spacer(minLength: 10)
 
-                    Spacer()
+                Text(ticket.isActive ? "ACTIVE" : "DISABLED")
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.thinMaterial)
+                    .clipShape(Capsule())
+                    .foregroundStyle(.white)
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(alignment: .bottom, spacing: 14) {
+                EticketQRCodeView(payload: ticket.payloadForQr, qrSize: min(170, cardHeight * 0.48), includeBackground: true)
+
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: 8) {
+                    Text("Status")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.85))
 
                     Text(ticket.status.uppercased())
                         .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(.ultraThinMaterial)
                         .clipShape(Capsule())
                         .foregroundStyle(.white)
                 }
             }
-            .padding(20)
         }
+        .padding(22)
         .frame(width: cardWidth, height: cardHeight)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background {
+            TicketCardBackground(urlString: ticket.event?.coverUrl)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(.white.opacity(0.25), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(.white.opacity(0.26), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.16), radius: 10, x: 0, y: 6)
+        .shadow(color: .black.opacity(0.17), radius: 12, x: 0, y: 8)
     }
+}
 
-    @ViewBuilder
-    private var ticketBackground: some View {
-        if let coverUrl = ticket.event?.coverUrl,
-           let url = URL(string: coverUrl) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .empty:
-                    placeholderBackground
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .overlay(.black.opacity(0.28))
-                        .blur(radius: 8)
-                        .overlay(.ultraThinMaterial)
-                case .failure:
-                    placeholderBackground
-                @unknown default:
-                    placeholderBackground
+private struct TicketCardBackground: View {
+    let urlString: String?
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.indigo.opacity(0.92), .purple.opacity(0.84), .blue.opacity(0.80)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            if let urlString, let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .saturation(1.15)
+                            .blur(radius: 14)
+                            .opacity(0.62)
+                    default:
+                        EmptyView()
+                    }
                 }
             }
-        } else {
-            placeholderBackground
-        }
-    }
 
-    private var placeholderBackground: some View {
-        LinearGradient(
-            colors: [.indigo.opacity(0.85), .purple.opacity(0.75)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .overlay(.ultraThinMaterial)
+            Rectangle().fill(.black.opacity(0.24))
+            Rectangle().fill(.ultraThinMaterial).opacity(0.68)
+        }
     }
 }
 
