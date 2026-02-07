@@ -120,7 +120,7 @@ struct MyStuffView: View {
                                     }
                                 }
                                 .padding(.horizontal)
-                                .padding(.bottom, 6)
+                                .padding(.vertical, 14)
                             }
                         }
                     }
@@ -211,7 +211,7 @@ private struct TicketCarouselCard: View {
                 }
 
                 HStack(alignment: .bottom) {
-                    EticketQRCodeView(payload: ticket.payloadForQr, qrSize: 92, includeBackground: false)
+                    EticketQRCodeView(payload: ticket.payloadForQr, qrSize: 112, includeBackground: false)
 
                     Spacer()
 
@@ -224,9 +224,9 @@ private struct TicketCarouselCard: View {
                         .foregroundStyle(.white)
                 }
             }
-            .padding(16)
+            .padding(20)
         }
-        .frame(width: 300, height: 190)
+        .frame(width: 320, height: 230)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
