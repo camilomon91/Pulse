@@ -54,7 +54,6 @@ struct MyEventsView: View {
     @State private var selectedEventForEditing: Event?
     @State private var selectedEventForManaging: Event?
     @State private var selectedEventAction: Event?
-    @State private var isShowingEventOptions = false
 
     var body: some View {
         NavigationStack {
@@ -75,7 +74,6 @@ struct MyEventsView: View {
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 selectedEventAction = event
-                                isShowingEventOptions = true
                             }
                             .swipeActions {
                                 Button(role: .destructive) {
@@ -98,22 +96,15 @@ struct MyEventsView: View {
             .sheet(item: $selectedEventForManaging) { event in
                 OrganizerManageEventView(event: event)
             }
-            .confirmationDialog("Event options", isPresented: $isShowingEventOptions, presenting: selectedEventAction) { event in
-                Button("Manage event") {
-                    selectedEventForManaging = event
-                }
-
-                Button("Edit event") {
-                    selectedEventForEditing = event
-                }
-
-                if !event.isPublished {
-                    Button("Publish") {
-                        Task { await vm.publish(event) }
-                    }
-                }
-            } message: { event in
-                Text(event.title)
+            .sheet(item: $selectedEventAction) { event in
+                EventActionsSheet(
+                    event: event,
+                    onManage: { selectedEventForManaging = event },
+                    onEdit: { selectedEventForEditing = event },
+                    onPublish: { Task { await vm.publish(event) } }
+                )
+                .presentationDetents([.height(event.isPublished ? 210 : 260)])
+                .presentationDragIndicator(.visible)
             }
         }
     }
@@ -146,5 +137,55 @@ struct MyEventsView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+
+private struct EventActionsSheet: View {
+    let event: Event
+    let onManage: () -> Void
+    let onEdit: () -> Void
+    let onPublish: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(event.title)
+                .font(.headline)
+                .lineLimit(2)
+
+            Button {
+                dismiss()
+                onManage()
+            } label: {
+                Label("Manage event", systemImage: "slider.horizontal.3")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+
+            Button {
+                dismiss()
+                onEdit()
+            } label: {
+                Label("Edit event", systemImage: "pencil")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+
+            if !event.isPublished {
+                Button {
+                    dismiss()
+                    onPublish()
+                } label: {
+                    Label("Publish", systemImage: "paperplane")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding()
     }
 }

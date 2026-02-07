@@ -85,14 +85,16 @@ final class OrganizerManageEventViewModel: ObservableObject {
             scannedTicket = ticket
             scanFeedback = nil
 
-            // First scan consumes the ticket.
-            if ticket.isActive {
+            // First scan consumes the ticket only once.
+            if ticket.isActive && ticket.scannedAt == nil {
                 try await service.markTicketScanned(ticketId: ticket.id, scannedAt: Date())
                 await load()
                 if let refreshed = try await service.fetchOrganizerTicketById(eventId: eventId, ticketId: ticket.id) {
                     scannedTicket = refreshed
                 }
                 scanFeedback = "Ticket scanned and disabled."
+            } else if ticket.scannedAt != nil {
+                scanFeedback = "Ticket already scanned. You can still toggle enable/disable manually."
             }
         } catch {
             scanFeedback = error.localizedDescription
