@@ -16,6 +16,9 @@ struct OrganizerRootView: View {
             CreateEventView()
                 .tabItem { Label("Create", systemImage: "plus.circle") }
 
+            OrganizerOrdersView()
+                .tabItem { Label("Orders", systemImage: "bag") }
+
             ProfileTabView()
                 .tabItem { Label("Profile", systemImage: "person.circle") }
         }
