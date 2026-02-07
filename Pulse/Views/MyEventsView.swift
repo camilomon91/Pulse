@@ -186,6 +186,7 @@ private struct EventActionsSheet: View {
 
             Spacer(minLength: 0)
         }
-        .padding()
+        .background(.clear)
+        .padding(25)
     }
 }
