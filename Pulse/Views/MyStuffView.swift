@@ -111,24 +111,24 @@ struct MyStuffView: View {
                                 .font(.headline)
                                 .padding(.horizontal)
 
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                LazyHStack(spacing: 16) {
-                                    ForEach(vm.tickets) { ticket in
-                                        NavigationLink {
-                                            TicketDetailView(ticket: ticket)
-                                        } label: {
-                                            TicketCarouselCard(
-                                                ticket: ticket,
-                                                cardWidth: cardWidth,
-                                                cardHeight: cardHeight
-                                            )
-                                        }
-                                        .buttonStyle(.plain)
+                            TabView {
+                                ForEach(vm.tickets) { ticket in
+                                    NavigationLink {
+                                        TicketDetailView(ticket: ticket)
+                                    } label: {
+                                        TicketCarouselCard(
+                                            ticket: ticket,
+                                            cardWidth: cardWidth,
+                                            cardHeight: cardHeight
+                                        )
                                     }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 15)
+                                    .padding(.vertical, 16)
                                 }
-                                .padding(.horizontal)
-                                .padding(.vertical, 16)
                             }
+                            .tabViewStyle(.page(indexDisplayMode: .automatic))
+                            .frame(height: cardHeight + 32)
                         }
                     }
                 }
