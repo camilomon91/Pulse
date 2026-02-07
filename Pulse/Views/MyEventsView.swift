@@ -52,6 +52,9 @@ final class MyEventsViewModel: ObservableObject {
 struct MyEventsView: View {
     @StateObject private var vm = MyEventsViewModel()
     @State private var selectedEventForEditing: Event?
+    @State private var selectedEventForManaging: Event?
+    @State private var selectedEventAction: Event?
+    @State private var isShowingEventOptions = false
 
     var body: some View {
         NavigationStack {
@@ -68,49 +71,19 @@ struct MyEventsView: View {
                                           description: Text("Create your first event."))
                 } else {
                     List(vm.events) { event in
-                        HStack(alignment: .top, spacing: 12) {
-                            RemoteEventImageView(urlString: event.coverUrl, width: 92, height: 92, cornerRadius: 10)
-
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(event.title).font(.headline)
-                                    Spacer()
-                                    Text(event.isPublished ? "Published" : "Draft")
-                                        .font(.caption)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(.thinMaterial)
-                                        .clipShape(Capsule())
-                                }
-
-                                Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-
-                                HStack {
-                                    Button("Edit") {
-                                        selectedEventForEditing = event
-                                    }
-                                    .buttonStyle(.bordered)
-
-                                    if !event.isPublished {
-                                        Button("Publish") {
-                                            Task { await vm.publish(event) }
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                    }
-                                }
-                                .padding(.top, 6)
+                        eventRow(event)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedEventAction = event
+                                isShowingEventOptions = true
                             }
-                        }
-                        .padding(.vertical, 4)
-                        .swipeActions {
-                            Button(role: .destructive) {
-                                Task { await vm.delete(event) }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    Task { await vm.delete(event) }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
                             }
-                        }
                     }
                     .refreshable { await vm.load() }
                 }
@@ -122,6 +95,56 @@ struct MyEventsView: View {
                     await vm.load()
                 }
             }
+            .sheet(item: $selectedEventForManaging) { event in
+                OrganizerManageEventView(event: event)
+            }
+            .confirmationDialog("Event options", isPresented: $isShowingEventOptions, presenting: selectedEventAction) { event in
+                Button("Manage event") {
+                    selectedEventForManaging = event
+                }
+
+                Button("Edit event") {
+                    selectedEventForEditing = event
+                }
+
+                if !event.isPublished {
+                    Button("Publish") {
+                        Task { await vm.publish(event) }
+                    }
+                }
+            } message: { event in
+                Text(event.title)
+            }
         }
+    }
+
+    @ViewBuilder
+    private func eventRow(_ event: Event) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            RemoteEventImageView(urlString: event.coverUrl, width: 92, height: 92, cornerRadius: 10)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(event.title).font(.headline)
+                    Spacer()
+                    Text(event.isPublished ? "Published" : "Draft")
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.thinMaterial)
+                        .clipShape(Capsule())
+                }
+
+                Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Text("Tap for options: Manage or Edit")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 6)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }

@@ -2,6 +2,8 @@ import SwiftUI
 import Combine
 import Foundation
 import Supabase
+import CoreImage
+import CoreImage.CIFilterBuiltins
 
 // MARK: - ViewModel
 
@@ -9,12 +11,14 @@ import Supabase
 final class MyStuffViewModel: ObservableObject {
     enum Segment: String, CaseIterable, Identifiable {
         case orders = "Orders"
+        case tickets = "Tickets"
         case rsvps = "RSVPs"
         var id: String { rawValue }
     }
 
     @Published var segment: Segment = .orders
     @Published var orders: [OrderWithEvent] = []
+    @Published var tickets: [TicketWithDetails] = []
     @Published var rsvps: [RSVPWithEvent] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -32,8 +36,10 @@ final class MyStuffViewModel: ObservableObject {
 
         do {
             async let o = service.fetchMyOrdersWithEvent(limit: 50)
+            async let t = service.fetchMyTickets(limit: 100)
             async let r = service.fetchMyRSVPsWithEvent(limit: 50)
             orders = try await o
+            tickets = try await t
             rsvps = try await r
         } catch {
             errorMessage = error.localizedDescription
@@ -67,7 +73,7 @@ struct MyStuffView: View {
 
     @ViewBuilder
     private var content: some View {
-        if vm.isLoading && vm.orders.isEmpty && vm.rsvps.isEmpty {
+        if vm.isLoading && vm.orders.isEmpty && vm.rsvps.isEmpty && vm.tickets.isEmpty {
             ProgressView().padding(.top, 30)
         } else if let msg = vm.errorMessage {
             ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle", description: Text(msg))
@@ -87,6 +93,25 @@ struct MyStuffView: View {
                                 city: order.event.city,
                                 coverUrl: order.event.coverUrl,
                                 trailing: "\(order.status.uppercased()) • \(CurrencyFormatter.string(cents: order.totalCents, currency: order.currency))"
+                            )
+                        }
+                    }
+                }
+
+            case .tickets:
+                if vm.tickets.isEmpty {
+                    ContentUnavailableView("No tickets yet", systemImage: "ticket")
+                } else {
+                    List(vm.tickets) { ticket in
+                        NavigationLink {
+                            TicketDetailView(ticket: ticket)
+                        } label: {
+                            EventRow(
+                                title: ticket.event?.title ?? "Event Ticket",
+                                subtitle: ticket.event?.startAt.formatted(date: .abbreviated, time: .shortened) ?? ticket.createdAt.formatted(date: .abbreviated, time: .shortened),
+                                city: ticket.event?.city,
+                                coverUrl: ticket.event?.coverUrl,
+                                trailing: "\(ticket.status.uppercased()) • \(ticket.isActive ? "Active" : "Disabled")"
                             )
                         }
                     }
@@ -142,6 +167,98 @@ private struct EventRow: View {
                 .multilineTextAlignment(.trailing)
         }
         .padding(.vertical, 6)
+    }
+}
+
+struct TicketDetailView: View {
+    let ticket: TicketWithDetails
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                if let event = ticket.event {
+                    RemoteEventImageView(urlString: event.coverUrl, width: nil, height: 200, cornerRadius: 16)
+                    Text(event.title)
+                        .font(.title2)
+                        .bold()
+                    Text(event.startAt.formatted(date: .long, time: .shortened))
+                        .foregroundStyle(.secondary)
+                }
+
+                if let ticketTypeName = ticket.ticketType?.name {
+                    Text(ticketTypeName)
+                        .font(.headline)
+                }
+
+                EticketQRCodeView(payload: ticketPayload)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+
+                Text("Ticket ID: \(ticket.id.uuidString)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+
+                if let scanCode = ticket.scanCode, !scanCode.isEmpty {
+                    Text("Scan code: \(scanCode)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
+                Text("Status: \(ticket.status.uppercased())")
+                    .foregroundStyle(.secondary)
+
+                Text("State: \(ticket.isActive ? "Enabled" : "Disabled")")
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+        }
+        .navigationTitle("E-Ticket")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var ticketPayload: String {
+        if let scanCode = ticket.scanCode, !scanCode.isEmpty {
+            return scanCode
+        }
+
+        return "PULSE|ticket=\(ticket.id.uuidString)|event=\(ticket.eventId.uuidString)|owner=\(ticket.ownerUserId.uuidString)"
+    }
+}
+
+private struct EticketQRCodeView: View {
+    let payload: String
+    private let context = CIContext()
+    private let filter = CIFilter.qrCodeGenerator()
+
+    var body: some View {
+        Group {
+            if let image = makeImage() {
+                Image(uiImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 220, height: 220)
+                    .padding()
+                    .background(.thinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            } else {
+                ContentUnavailableView("Could not generate QR", systemImage: "qrcode")
+            }
+        }
+    }
+
+    private func makeImage() -> UIImage? {
+        let data = Data(payload.utf8)
+        filter.message = data
+        filter.correctionLevel = "M"
+        guard let outputImage = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)),
+              let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
+            return nil
+        }
+
+        return UIImage(cgImage: cgImage)
     }
 }
 
