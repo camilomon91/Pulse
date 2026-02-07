@@ -38,10 +38,20 @@ final class MyEventsViewModel: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+
+    func delete(_ event: Event) async {
+        do {
+            try await service.deleteEvent(eventId: event.id)
+            events.removeAll { $0.id == event.id }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 }
 
 struct MyEventsView: View {
     @StateObject private var vm = MyEventsViewModel()
+    @State private var selectedEventForEditing: Event?
 
     var body: some View {
         NavigationStack {
@@ -58,37 +68,60 @@ struct MyEventsView: View {
                                           description: Text("Create your first event."))
                 } else {
                     List(vm.events) { event in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text(event.title).font(.headline)
-                                Spacer()
-                                Text(event.isPublished ? "Published" : "Draft")
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(.thinMaterial)
-                                    .clipShape(Capsule())
-                            }
+                        HStack(alignment: .top, spacing: 12) {
+                            RemoteEventImageView(urlString: event.coverUrl, width: 92, height: 92, cornerRadius: 10)
 
-                            Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-
-                            if !event.isPublished {
-                                Button("Publish") {
-                                    Task { await vm.publish(event) }
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(event.title).font(.headline)
+                                    Spacer()
+                                    Text(event.isPublished ? "Published" : "Draft")
+                                        .font(.caption)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(.thinMaterial)
+                                        .clipShape(Capsule())
                                 }
-                                .buttonStyle(.borderedProminent)
+
+                                Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+
+                                HStack {
+                                    Button("Edit") {
+                                        selectedEventForEditing = event
+                                    }
+                                    .buttonStyle(.bordered)
+
+                                    if !event.isPublished {
+                                        Button("Publish") {
+                                            Task { await vm.publish(event) }
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                    }
+                                }
                                 .padding(.top, 6)
                             }
                         }
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 4)
+                        .swipeActions {
+                            Button(role: .destructive) {
+                                Task { await vm.delete(event) }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                     .refreshable { await vm.load() }
                 }
             }
             .navigationTitle("My Events")
             .task { await vm.load() }
+            .sheet(item: $selectedEventForEditing) { event in
+                EditEventView(event: event) {
+                    await vm.load()
+                }
+            }
         }
     }
 }
