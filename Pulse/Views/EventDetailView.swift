@@ -12,9 +12,8 @@ final class EventDetailViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     @Published var ticketTypes: [TicketType] = []
-    @Published var quantities: [UUID: Int] = [:]   // ticket_type_id -> qty
+    @Published var quantities: [UUID: Int] = [:]
 
-    // RSVP (for free events)
     @Published var myRSVP: EventRSVP?
 
     private let service: EventsServing
@@ -36,12 +35,10 @@ final class EventDetailViewModel: ObservableObject {
             } else {
                 ticketTypes = try await service.fetchTicketTypes(eventId: event.id)
 
-                // init quantities once
                 if quantities.isEmpty {
                     for t in ticketTypes { quantities[t.id] = 0 }
                 }
 
-                // clamp existing selections to capacity (important after reload)
                 for t in ticketTypes {
                     let current = quantities[t.id] ?? 0
                     quantities[t.id] = min(max(0, current), max(0, t.available))
@@ -77,7 +74,6 @@ final class EventDetailViewModel: ObservableObject {
         quantities.values.contains(where: { $0 > 0 })
     }
 
-    // MARK: RSVP
 
     func rsvpGoing() async {
         errorMessage = nil
@@ -115,7 +111,6 @@ struct EventDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
 
-                // Cover header (optional)
                 coverHeader
 
                 Text(event.title)
@@ -159,7 +154,6 @@ struct EventDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await vm.load() }
         .onChange(of: goCheckout) { oldValue, newValue in
-            // newValue is the current value
             if oldValue == true && newValue == false {
                 Task { await vm.load() }
             }
@@ -174,7 +168,6 @@ struct EventDetailView: View {
 
     }
 
-    // MARK: - Sections
 
     private var freeEventSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -287,7 +280,6 @@ struct EventDetailView: View {
     }
 
 
-    // MARK: - Helpers
 
 
     @ViewBuilder

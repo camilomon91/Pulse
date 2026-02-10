@@ -3,8 +3,7 @@ import Supabase
 
 struct EventsService: EventsServing {}
 
-// MARK: - Helper to build AnyJSON from Foundation types.
-// This Supabase AnyJSON enum in this SDK version does not expose numeric cases.
+
 extension AnyJSON {
     static func fromAny(_ value: Any) -> AnyJSON {
         switch value {

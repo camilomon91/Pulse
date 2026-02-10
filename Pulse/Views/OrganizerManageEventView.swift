@@ -86,7 +86,6 @@ final class OrganizerManageEventViewModel: ObservableObject {
             scannedTicket = ticket
             scanFeedback = nil
 
-            // First scan consumes the ticket only once.
             if ticket.isActive && ticket.scannedAt == nil {
                 try await service.markTicketScanned(ticketId: ticket.id, scannedAt: Date())
                 await load()

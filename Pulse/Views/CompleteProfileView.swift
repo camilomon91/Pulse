@@ -21,18 +21,15 @@ struct CompleteProfileView: View {
                     .font(.largeTitle)
                     .bold()
 
-                // MARK: - Name
                 TextField("Full Name", text: $vm.fullName)
                     .textFieldStyle(.roundedBorder)
 
-                // MARK: - Birthdate
                 DatePicker(
                     "Birthdate",
                     selection: $vm.birthdate,
                     displayedComponents: .date
                 )
 
-                // MARK: - Role selection
                 VStack(alignment: .leading, spacing: 12) {
                     Text("How will you use Pulse?")
                         .font(.headline)
@@ -47,7 +44,6 @@ struct CompleteProfileView: View {
                     .pickerStyle(.segmented)
                 }
 
-                // MARK: - Interests
                 VStack(alignment: .leading) {
                     Text("Select Interests")
                         .font(.headline)
@@ -76,7 +72,6 @@ struct CompleteProfileView: View {
                     }
                 }
 
-                // MARK: - Continue
                 Button {
                     Task {
                         do {

@@ -12,11 +12,9 @@ enum UserRole: String, Codable {
     case organizer
 }
 
-/// Matches `public.profiles` table.
 struct Profile: Codable, Identifiable {
     let id: UUID
     var fullName: String?
-    /// Stored as "yyyy-MM-dd" because Postgres DATE is date-only (no time zone).
     var birthdate: String?
     var interests: [String]?
     var role: UserRole
@@ -33,7 +31,6 @@ struct Profile: Codable, Identifiable {
         case createdAt = "created_at"
     }
 
-    /// Convenience for UI.
     var birthdateDate: Date? {
         guard let birthdate else { return nil }
         return DateFormatters.pgDate.date(from: birthdate)
@@ -41,7 +38,6 @@ struct Profile: Codable, Identifiable {
 }
 
 enum DateFormatters {
-    /// Postgres `date` formatted as yyyy-MM-dd.
     static let pgDate: DateFormatter = {
         let df = DateFormatter()
         df.calendar = Calendar(identifier: .gregorian)

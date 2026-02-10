@@ -7,9 +7,7 @@
 
 import Foundation
 
-/// Represents one line item in an order, with the embedded ticket type from PostgREST.
-/// Query shape:
-/// order_items.select("..., ticket_types(...)")
+
 struct OrderItemWithTicket: Codable, Identifiable {
     let id: UUID
     let orderId: UUID

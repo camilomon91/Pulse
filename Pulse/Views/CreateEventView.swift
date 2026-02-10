@@ -18,11 +18,9 @@ final class CreateEventViewModel: ObservableObject {
     @Published var locationName = ""
     @Published var city = ""
 
-    // Ticketing
     @Published var isFree = true
-    @Published var rsvpCapacityText = ""   // optional int text for free events
+    @Published var rsvpCapacityText = ""
 
-    // Cover (data only lives in VM)
     @Published var coverImageData: Data? = nil
 
     @Published var isPublished = false
@@ -52,7 +50,6 @@ final class CreateEventViewModel: ObservableObject {
             return
         }
 
-        // RSVP capacity (optional) only for free events
         var rsvpCap: Int? = nil
         if isFree {
             let trimmed = rsvpCapacityText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -87,9 +84,7 @@ final class CreateEventViewModel: ObservableObject {
         do {
             let created = try await service.createEventReturning(insert)
 
-            // If ticketed, create ticket types
             if !isFree {
-                // Validate drafts
                 for d in ticketTypes {
                     let name = d.name.trimmingCharacters(in: .whitespacesAndNewlines)
                     if name.isEmpty {
@@ -133,7 +128,6 @@ final class CreateEventViewModel: ObservableObject {
 
             successMessage = isPublished ? "Event published!" : "Draft saved!"
 
-            // reset
             title = ""
             description = ""
             startAt = Date()
@@ -151,8 +145,7 @@ final class CreateEventViewModel: ObservableObject {
     }
 }
 
-// Draft ticket type used in UI
-// Draft ticket type used in UI (Strings for stable editing in Form)
+
 struct TicketTypeDraft: Identifiable {
     var id = UUID()
     var name: String
@@ -166,11 +159,9 @@ struct TicketTypeDraft: Identifiable {
 struct CreateEventView: View {
     @StateObject private var vm = CreateEventViewModel()
 
-    // Cover picker (VIEW state only)
     @State private var selectedPhoto: PhotosPickerItem? = nil
     @State private var coverPreview: Image? = nil
 
-    // Ticket types UI
     @State private var ticketDrafts: [TicketTypeDraft] = [
         TicketTypeDraft(
             name: "General Admission",
@@ -204,7 +195,7 @@ struct CreateEventView: View {
                         Button(role: .destructive) {
                             selectedPhoto = nil
                             vm.coverImageData = nil
-                            coverPreview = nil   // ✅ now this refers to the @State var
+                            coverPreview = nil
                         } label: {
                             Text("Remove cover")
                         }
@@ -274,7 +265,6 @@ struct CreateEventView: View {
 
                 Section {
                     Button(vm.isLoading ? "Saving..." : "Save") {
-                        // ✅ commits text fields that are still being edited
                         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
 
                         Task {
@@ -289,7 +279,6 @@ struct CreateEventView: View {
         }
     }
     private func normalizedTicketDrafts() -> [TicketTypeDraft] {
-        // Strip non-digits so "2,500" doesn’t break parsing
         ticketDrafts.map { d in
             var copy = d
             copy.priceCentsText = d.priceCentsText.filter(\.isNumber)
@@ -323,7 +312,6 @@ struct CreateEventView: View {
         }
 
         Button {
-            // ✅ append MUST happen on main actor; we're in View so it is.
             ticketDrafts.append(
                 TicketTypeDraft(
                     name: "New Ticket",
@@ -343,7 +331,6 @@ struct CreateEventView: View {
         Binding<String>(
             get: { String(get()) },
             set: { newValue in
-                // keep only digits
                 let digits = newValue.filter { $0.isNumber }
                 set(Int(digits) ?? 0)
             }
@@ -353,7 +340,6 @@ struct CreateEventView: View {
 
 }
 
-// Image compression helper
 private extension Data {
     func jpegCompressed(maxBytes: Int) -> Data? {
         guard let image = UIImage(data: self) else { return nil }

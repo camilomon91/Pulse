@@ -1,6 +1,5 @@
 import Foundation
 
-/// Lightweight event projection used by PostgREST embedded selects in My Stuff.
 struct EventSnippet: Codable, Identifiable {
     let id: UUID
     let title: String
@@ -17,7 +16,6 @@ struct EventSnippet: Codable, Identifiable {
     }
 }
 
-/// Order row with embedded event (events(...))
 struct OrderWithEvent: Codable, Identifiable {
     let id: UUID
     let eventId: UUID
@@ -40,7 +38,6 @@ struct OrderWithEvent: Codable, Identifiable {
     }
 }
 
-/// RSVP row with embedded event (events(...))
 struct RSVPWithEvent: Codable, Identifiable {
     let id: UUID
     let eventId: UUID

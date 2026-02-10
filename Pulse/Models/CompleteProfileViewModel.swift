@@ -12,22 +12,18 @@ import Supabase
 @MainActor
 final class CompleteProfileViewModel: ObservableObject {
 
-    // MARK: - Form fields
     @Published var fullName = ""
     @Published var birthdate = Date()
     @Published var selectedInterests: Set<String> = []
     @Published var role: UserRole = .attendee
     @Published var isLoading = false
 
-    // MARK: - Interests
     let allInterests = [
         "Music", "Sports", "Tech", "Art",
         "Travel", "Food", "Gaming", "Fitness"
     ]
 
-    // MARK: - Save profile
     func saveProfile() async throws {
-        // Validate against server to avoid "ghost session" issues
         _ = try await supabase.auth.user()
 
         guard let user = supabase.auth.currentUser else {

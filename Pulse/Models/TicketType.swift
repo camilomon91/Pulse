@@ -16,18 +16,16 @@ struct TicketType: Codable, Identifiable, Hashable {
     let currency: String
     let capacity: Int
 
-    /// Total sold / reserved tickets for this ticket type (server-maintained).
-    /// Present when selecting from `ticket_types` or `ticket_types_with_availability`.
+
     let soldCount: Int?
 
-    /// Remaining inventory for this ticket type (computed in the DB view).
-    /// Present when selecting from `ticket_types_with_availability`.
+
     let remaining: Int?
 
     let isActive: Bool
     let createdAt: Date
 
-    /// Prefer `remaining` if present, otherwise fall back to `capacity - soldCount`.
+
     var available: Int {
         max(0, remaining ?? (capacity - (soldCount ?? 0)))
     }

@@ -19,9 +19,7 @@ struct Event: Codable, Identifiable {
     let coverUrl: String?
     let category: String?
 
-    /// Ticketing mode
     let isFree: Bool
-    /// Capacity for RSVP-only free events (nil = unlimited)
     let rsvpCapacity: Int?
 
     let isPublished: Bool
@@ -46,7 +44,6 @@ struct Event: Codable, Identifiable {
     }
 }
 
-/// Insert payload (Encodable) for creating events.
 struct EventInsert: Encodable {
     let creator_id: UUID
     let title: String

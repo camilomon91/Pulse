@@ -5,7 +5,6 @@ import Supabase
 import CoreImage
 import CoreImage.CIFilterBuiltins
 
-// MARK: - ViewModel
 
 @MainActor
 final class MyStuffViewModel: ObservableObject {
@@ -47,7 +46,6 @@ final class MyStuffViewModel: ObservableObject {
     }
 }
 
-// MARK: - Views
 
 struct MyStuffView: View {
     @StateObject private var vm = MyStuffViewModel()
@@ -390,7 +388,6 @@ private extension TicketWithDetails {
     }
 }
 
-// MARK: - Order Detail
 
 struct OrderDetailView: View {
     let order: OrderWithEvent
@@ -511,7 +508,6 @@ struct OrderDetailView: View {
     }
 }
 
-// MARK: - RSVP Detail (simple)
 
 struct RSVPDetailView: View {
     let rsvp: RSVPWithEvent
@@ -541,7 +537,6 @@ struct RSVPDetailView: View {
     }
 }
 
-// MARK: - Load full Event and push your existing EventDetailView(event:)
 
 struct EventDetailLoaderView: View {
     let eventId: UUID
